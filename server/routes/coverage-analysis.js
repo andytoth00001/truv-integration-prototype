@@ -108,11 +108,16 @@ export default function coverageAnalysisRoutes({ truv, apiLogger }) {
   });
 
   // GET /api/coverage/:kind/jobs/:id/csv — download CSV of completed results.
+  // Output: per-row data with its header, a blank row, then a "Coverage summary" block
+  // (totals + success-rate breakdown). Two stacked tables in one sheet — readable in
+  // Excel/Sheets without breaking on '#' comment lines.
   router.get('/api/coverage/:kind/jobs/:id/csv', (req, res) => {
     const job = jobs.get(req.params.id);
     if (!job || job.kind !== req.params.kind) return res.status(404).json({ error: 'Not found' });
+    if (job.status !== 'completed') return res.status(409).json({ error: 'Job not completed' });
     const cols = job.kind === 'payroll' ? PAYROLL_COLUMNS : BANK_COLUMNS;
-    const csv = serializeCsv(job.results, cols);
+    const summary = buildSummary(job.results, job.kind);
+    const csv = serializeCsv(job.results, cols) + '\n' + serializeSummary(summary);
     const filename = `${job.kind}_coverage_${job.id.slice(0, 8)}.csv`;
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
@@ -283,7 +288,49 @@ function parseRetryAfterMs(result) {
 }
 
 // Exported for tests. Production code uses these via the route handler closure.
-export { runJob, lookupWithRetry, isThrottled, parseRetryAfterMs, MAX_RETRY_AFTER_MS, NO_HINT_BACKOFF_MS, RETRY_AFTER_BUFFER_MS };
+export { runJob, lookupWithRetry, isThrottled, parseRetryAfterMs, MAX_RETRY_AFTER_MS, NO_HINT_BACKOFF_MS, RETRY_AFTER_BUFFER_MS, buildSummary, serializeSummary };
+
+// Aggregate a finished job's results into the same buckets the UI summary panel renders.
+// Coverage buckets denominate over total uploaded rows; success-rate buckets denominate
+// over covered rows only (the API only returns success_rate on covers).
+function buildSummary(results, kind) {
+  const total = results.length;
+  const counts = { covered: 0, not_found: 0, error: 0 };
+  const sr = { high: 0, low: 0, unsupported: 0, missing: 0 };
+  for (const r of results) {
+    if (r.status in counts) counts[r.status]++;
+    if (r.status === 'covered') {
+      const v = String(r.success_rate || '').toLowerCase();
+      if (v === 'high' || v === 'low' || v === 'unsupported') sr[v]++;
+      else sr.missing++;
+    }
+  }
+  const entityLabel = kind === 'payroll' ? 'employers' : 'institutions';
+  return { total, covered: counts.covered, notFound: counts.not_found, errors: counts.error, sr, entityLabel };
+}
+
+// Render the summary as CSV rows (3-column Metric/Count/Percent table).
+// The returned string ends with a trailing newline. The caller is expected to
+// prepend the data CSV and a blank separator row: dataCsv + '\n' + serializeSummary(s).
+function serializeSummary(s) {
+  const pctOfTotal = n => s.total > 0 ? `${Math.round((n / s.total) * 100)}%` : '0%';
+  const pctOfCovered = n => s.covered > 0 ? `${Math.round((n / s.covered) * 100)}%` : '0%';
+  const lines = [
+    'Coverage summary,,',
+    'Metric,Count,Percent',
+    `Total uploaded,${s.total},`,
+    `Covered,${s.covered},${pctOfTotal(s.covered)}`,
+    `Not found,${s.notFound},${pctOfTotal(s.notFound)}`,
+    `Errors,${s.errors},${pctOfTotal(s.errors)}`,
+    ',,',
+    `Success rate (% of covered ${s.entityLabel}),Count,Percent`,
+    `High,${s.sr.high},${pctOfCovered(s.sr.high)}`,
+    `Low,${s.sr.low},${pctOfCovered(s.sr.low)}`,
+    `Unsupported,${s.sr.unsupported},${pctOfCovered(s.sr.unsupported)}`,
+    `Missing,${s.sr.missing},${pctOfCovered(s.sr.missing)}`,
+  ];
+  return lines.join('\n') + '\n';
+}
 
 // Map a Truv response onto the row's status/match_* fields.
 // Uses the API's own confidence_level + success_rate verbatim, no derivation.

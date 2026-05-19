@@ -141,6 +141,17 @@ export function CoverageRunner({ kind, productOptions, sampleUrl, sampleFilename
   const visible = filter === 'all' ? rows : rows.filter(r => r.status === filter);
   const pct = progress.total > 0 ? Math.round((progress.processed / progress.total) * 100) : 0;
 
+  // Denominator for the top "Coverage" row is total uploaded rows; denominator for the
+  // success-rate breakdown is covered rows only (success_rate is only set on covers).
+  const summary = rows.reduce((acc, r) => {
+    if (r.status === 'covered') {
+      const sr = String(r.success_rate || '').toLowerCase();
+      if (sr === 'high' || sr === 'low' || sr === 'unsupported') acc[sr]++;
+      else acc.missing++;
+    }
+    return acc;
+  }, { high: 0, low: 0, unsupported: 0, missing: 0 });
+
   return (
     <div class="px-8 py-10 max-w-[1100px] w-full mx-auto">
       <div class="mb-8">
@@ -213,6 +224,17 @@ export function CoverageRunner({ kind, productOptions, sampleUrl, sampleFilename
             </div>
           </div>
 
+          {status === 'completed' && (
+            <SummaryPanel
+              total={rows.length}
+              covered={counts.covered || 0}
+              notFound={counts.not_found || 0}
+              errors={counts.error || 0}
+              breakdown={summary}
+              entityLabel={kind === 'payroll' ? 'employers' : 'institutions'}
+            />
+          )}
+
           <div class="flex gap-2 mb-4 text-xs">
             <FilterPill active={filter === 'all'} onClick={() => setFilter('all')} label={`All (${rows.length})`} />
             <FilterPill active={filter === 'covered'} onClick={() => setFilter('covered')} label={`Covered (${counts.covered || 0})`} color="green" />
@@ -276,6 +298,47 @@ export function CoverageRunner({ kind, productOptions, sampleUrl, sampleFilename
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+function SummaryPanel({ total, covered, notFound, errors, breakdown, entityLabel }) {
+  const pctOfTotal = n => total > 0 ? Math.round((n / total) * 100) : 0;
+  const pctOfCovered = n => covered > 0 ? Math.round((n / covered) * 100) : 0;
+
+  return (
+    <div class="mb-6 border border-[#e5e7eb] rounded-md bg-[#f9fafb] p-4">
+      <div class="text-xs font-semibold uppercase tracking-wide text-[#6b7280] mb-2">Coverage</div>
+      <div class="grid grid-cols-3 gap-3 mb-4">
+        <SummaryStat label="Covered" value={covered} pct={pctOfTotal(covered)} color="green" />
+        <SummaryStat label="Not found" value={notFound} pct={pctOfTotal(notFound)} color="gray" />
+        <SummaryStat label="Errors" value={errors} pct={pctOfTotal(errors)} color="red" />
+      </div>
+
+      <div class="text-xs font-semibold uppercase tracking-wide text-[#6b7280] mb-1">Success rate</div>
+      <div class="text-xs text-[#6b7280] mb-2">Percentages below are of <strong>covered {entityLabel}</strong> ({covered}), not of total uploaded.</div>
+      <div class="grid grid-cols-4 gap-3">
+        <SummaryStat label="High" value={breakdown.high} pct={pctOfCovered(breakdown.high)} color="green" />
+        <SummaryStat label="Low" value={breakdown.low} pct={pctOfCovered(breakdown.low)} color="orange" />
+        <SummaryStat label="Unsupported" value={breakdown.unsupported} pct={pctOfCovered(breakdown.unsupported)} color="red" />
+        <SummaryStat label="Missing" value={breakdown.missing} pct={pctOfCovered(breakdown.missing)} color="gray" />
+      </div>
+    </div>
+  );
+}
+
+function SummaryStat({ label, value, pct, color }) {
+  const colorMap = {
+    green: 'text-green-700',
+    gray: 'text-gray-700',
+    red: 'text-red-700',
+    orange: 'text-orange-700',
+  };
+  return (
+    <div class="bg-white border border-[#e5e7eb] rounded-md px-3 py-2">
+      <div class="text-[11px] font-medium uppercase tracking-wide text-[#6b7280]">{label}</div>
+      <div class={`text-lg font-semibold tabular-nums ${colorMap[color] || 'text-[#171717]'}`}>{value}</div>
+      <div class="text-xs text-[#6b7280] tabular-nums">{pct}%</div>
     </div>
   );
 }
