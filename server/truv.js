@@ -137,7 +137,7 @@ export class TruvClient {
   // for accurate coverage matching when the caller has name + domain + state.
   // POST /v1/companies/  body: { name, domain, ein, phone, id, product_type }
   // Response shape mirrors company-mappings-search: matches with logo_url,
-  // success_rate, and confidence_level.
+  // success_rate, confidence_level, and mapping_status.
   async lookupCompany({ name, domain, ein, phone, id, product_type, state, address }) {
     const body = {};
     if (name) body.name = name;

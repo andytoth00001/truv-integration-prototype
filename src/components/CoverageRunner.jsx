@@ -23,7 +23,7 @@ export function CoverageRunner({ kind, productOptions, sampleUrl, sampleFilename
   const [progress, setProgress] = useState({ processed: 0, total: 0 });
   const [rows, setRows] = useState([]);
   const [error, setError] = useState(null);
-  const [filter, setFilter] = useState('all');     // all | covered | not_found | error
+  const [filter, setFilter] = useState('all');     // all | found | not_found | error
   const fileInputRef = useRef(null);
   const pollRef = useRef(null);
 
@@ -141,10 +141,10 @@ export function CoverageRunner({ kind, productOptions, sampleUrl, sampleFilename
   const visible = filter === 'all' ? rows : rows.filter(r => r.status === filter);
   const pct = progress.total > 0 ? Math.round((progress.processed / progress.total) * 100) : 0;
 
-  // Denominator for the top "Coverage" row is total uploaded rows; denominator for the
-  // success-rate breakdown is covered rows only (success_rate is only set on covers).
+  // Denominator for the top "Search status" row is total uploaded rows; denominator for
+  // the success-rate breakdown is found rows only (success_rate is only set on matches).
   const summary = rows.reduce((acc, r) => {
-    if (r.status === 'covered') {
+    if (r.status === 'found') {
       const sr = String(r.success_rate || '').toLowerCase();
       if (sr === 'high' || sr === 'low' || sr === 'unsupported') acc[sr]++;
       else acc.missing++;
@@ -227,7 +227,7 @@ export function CoverageRunner({ kind, productOptions, sampleUrl, sampleFilename
           {status === 'completed' && (
             <SummaryPanel
               total={rows.length}
-              covered={counts.covered || 0}
+              found={counts.found || 0}
               notFound={counts.not_found || 0}
               errors={counts.error || 0}
               breakdown={summary}
@@ -237,7 +237,7 @@ export function CoverageRunner({ kind, productOptions, sampleUrl, sampleFilename
 
           <div class="flex gap-2 mb-4 text-xs">
             <FilterPill active={filter === 'all'} onClick={() => setFilter('all')} label={`All (${rows.length})`} />
-            <FilterPill active={filter === 'covered'} onClick={() => setFilter('covered')} label={`Covered (${counts.covered || 0})`} color="green" />
+            <FilterPill active={filter === 'found'} onClick={() => setFilter('found')} label={`Found (${counts.found || 0})`} color="green" />
             <FilterPill active={filter === 'not_found'} onClick={() => setFilter('not_found')} label={`Not found (${counts.not_found || 0})`} color="gray" />
             <FilterPill active={filter === 'error'} onClick={() => setFilter('error')} label={`Errors (${counts.error || 0})`} color="red" />
           </div>
@@ -248,11 +248,11 @@ export function CoverageRunner({ kind, productOptions, sampleUrl, sampleFilename
                 <thead class="bg-[#f9fafb] sticky top-0">
                   <tr class="text-left text-[11px] font-semibold uppercase tracking-wide text-[#6b7280]">
                     <th class="px-3 py-2">Input</th>
-                    <th class="px-3 py-2">Status</th>
+                    <th class="px-3 py-2">Search Status</th>
                     <th class="px-3 py-2">Matched company</th>
                     <th class="px-3 py-2">Mapping ID</th>
                     <th class="px-3 py-2 text-right">Success rate</th>
-                    <th class="px-3 py-2 text-right">Confidence</th>
+                    {kind === 'payroll' && <th class="px-3 py-2">Mapping status</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -286,11 +286,11 @@ export function CoverageRunner({ kind, productOptions, sampleUrl, sampleFilename
                       </td>
                       <td class="px-3 py-2 text-xs font-mono text-[#6b7280] break-all">{row.match_id || '—'}</td>
                       <td class="px-3 py-2 text-right"><SuccessRateBadge value={row.success_rate} /></td>
-                      <td class="px-3 py-2 text-right text-[#374151] tabular-nums">{formatConfidence(row.confidence_level)}</td>
+                      {kind === 'payroll' && <td class="px-3 py-2"><MappingStatusBadge value={row.mapping_status} /></td>}
                     </tr>
                   ))}
                   {visible.length === 0 && (
-                    <tr><td colSpan={6} class="px-3 py-8 text-center text-[#9ca3af] text-sm">No rows for this filter.</td></tr>
+                    <tr><td colSpan={kind === 'payroll' ? 6 : 5} class="px-3 py-8 text-center text-[#9ca3af] text-sm">No rows for this filter.</td></tr>
                   )}
                 </tbody>
               </table>
@@ -302,26 +302,26 @@ export function CoverageRunner({ kind, productOptions, sampleUrl, sampleFilename
   );
 }
 
-function SummaryPanel({ total, covered, notFound, errors, breakdown, entityLabel }) {
+function SummaryPanel({ total, found, notFound, errors, breakdown, entityLabel }) {
   const pctOfTotal = n => total > 0 ? Math.round((n / total) * 100) : 0;
-  const pctOfCovered = n => covered > 0 ? Math.round((n / covered) * 100) : 0;
+  const pctOfFound = n => found > 0 ? Math.round((n / found) * 100) : 0;
 
   return (
     <div class="mb-6 border border-[#e5e7eb] rounded-md bg-[#f9fafb] p-4">
-      <div class="text-xs font-semibold uppercase tracking-wide text-[#6b7280] mb-2">Coverage</div>
+      <div class="text-xs font-semibold uppercase tracking-wide text-[#6b7280] mb-2">Search status</div>
       <div class="grid grid-cols-3 gap-3 mb-4">
-        <SummaryStat label="Covered" value={covered} pct={pctOfTotal(covered)} color="green" />
+        <SummaryStat label="Found" value={found} pct={pctOfTotal(found)} color="green" />
         <SummaryStat label="Not found" value={notFound} pct={pctOfTotal(notFound)} color="gray" />
         <SummaryStat label="Errors" value={errors} pct={pctOfTotal(errors)} color="red" />
       </div>
 
       <div class="text-xs font-semibold uppercase tracking-wide text-[#6b7280] mb-1">Success rate</div>
-      <div class="text-xs text-[#6b7280] mb-2">Percentages below are of <strong>covered {entityLabel}</strong> ({covered}), not of total uploaded.</div>
+      <div class="text-xs text-[#6b7280] mb-2">Percentages below are of <strong>found {entityLabel}</strong> ({found}), not of total uploaded.</div>
       <div class="grid grid-cols-4 gap-3">
-        <SummaryStat label="High" value={breakdown.high} pct={pctOfCovered(breakdown.high)} color="green" />
-        <SummaryStat label="Low" value={breakdown.low} pct={pctOfCovered(breakdown.low)} color="orange" />
-        <SummaryStat label="Unsupported" value={breakdown.unsupported} pct={pctOfCovered(breakdown.unsupported)} color="red" />
-        <SummaryStat label="Missing" value={breakdown.missing} pct={pctOfCovered(breakdown.missing)} color="gray" />
+        <SummaryStat label="High" value={breakdown.high} pct={pctOfFound(breakdown.high)} color="green" />
+        <SummaryStat label="Low" value={breakdown.low} pct={pctOfFound(breakdown.low)} color="orange" />
+        <SummaryStat label="Unsupported" value={breakdown.unsupported} pct={pctOfFound(breakdown.unsupported)} color="red" />
+        <SummaryStat label="Missing" value={breakdown.missing} pct={pctOfFound(breakdown.missing)} color="gray" />
       </div>
     </div>
   );
@@ -353,15 +353,6 @@ function FilterPill({ active, onClick, label, color }) {
   return <button onClick={onClick} class={`px-2.5 py-1 rounded-full transition-colors ${cls}`}>{label}</button>;
 }
 
-// confidence_level is returned as a fractional string like "0.9". Render as percent.
-function formatConfidence(v) {
-  if (v === null || v === undefined || v === '') return '—';
-  const n = typeof v === 'string' ? parseFloat(v) : Number(v);
-  if (!Number.isFinite(n)) return String(v);
-  const pct = n <= 1 ? n * 100 : n;
-  return `${pct.toFixed(0)}%`;
-}
-
 // success_rate is an enum string from Truv: "high" | "medium" | "low" | "unsupported" | null.
 function SuccessRateBadge({ value }) {
   if (!value) return <span class="text-[#9ca3af]">—</span>;
@@ -377,8 +368,21 @@ function SuccessRateBadge({ value }) {
 }
 
 function StatusBadge({ status }) {
-  if (status === 'covered') return <span class="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-800">Covered</span>;
+  if (status === 'found') return <span class="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-800">Found</span>;
   if (status === 'not_found') return <span class="px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-700">Not found</span>;
   if (status === 'error') return <span class="px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-800">Error</span>;
   return <span class="px-2 py-0.5 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">Pending</span>;
+}
+
+// mapping_status is an enum string from /v1/companies/: "verified" | "mapped" | "unmapped".
+function MappingStatusBadge({ value }) {
+  if (!value) return <span class="text-[#9ca3af]">—</span>;
+  const v = String(value).toLowerCase();
+  const colors = {
+    verified: 'bg-green-100 text-green-800',
+    mapped: 'bg-blue-100 text-blue-800',
+    unmapped: 'bg-gray-100 text-gray-700',
+  };
+  const cls = colors[v] || 'bg-gray-100 text-gray-800';
+  return <span class={`px-2 py-0.5 text-xs font-medium rounded-full uppercase tracking-wide ${cls}`}>{v}</span>;
 }

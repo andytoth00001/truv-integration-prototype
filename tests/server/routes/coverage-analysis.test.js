@@ -107,7 +107,7 @@ describe('runJob — throttle handling', () => {
 
     expect(lookupCompany).toHaveBeenCalledTimes(2);
     expect(job.status).toBe('completed');
-    expect(job.results[0].status).toBe('covered');
+    expect(job.results[0].status).toBe('found');
     expect(job.results[0].match_id).toBe('abc');
   });
 
@@ -132,7 +132,7 @@ describe('runJob — throttle handling', () => {
     await promise;
 
     expect(lookupCompany).toHaveBeenCalledTimes(2);
-    expect(job.results[0].status).toBe('covered');
+    expect(job.results[0].status).toBe('found');
   });
 
   it('falls back to escalating backoff when 429 has no hint', async () => {
@@ -146,7 +146,7 @@ describe('runJob — throttle handling', () => {
     await promise;
 
     expect(lookupCompany).toHaveBeenCalledTimes(2);
-    expect(job.results[0].status).toBe('covered');
+    expect(job.results[0].status).toBe('found');
   });
 
   it('does not surface a throttle-text message as a row error (outer sweep recovers)', async () => {
@@ -175,7 +175,7 @@ describe('runJob — throttle handling', () => {
     await promise;
 
     expect(job.status).toBe('completed');
-    expect(job.results[0].status).toBe('covered');
+    expect(job.results[0].status).toBe('found');
     expect(job.results[0].error).toBeUndefined();
   });
 
@@ -192,7 +192,7 @@ describe('runJob — throttle handling', () => {
     expect(lookupCompany).toHaveBeenCalledTimes(1);
     expect(job.results[0].status).toBe('error');
     expect(job.results[0].error).toBe('missing name');
-    expect(job.results[1].status).toBe('covered');
+    expect(job.results[1].status).toBe('found');
   });
 
   it('throws non-throttle 4xx errors out to the row (e.g. 400 bad request)', async () => {
@@ -210,5 +210,46 @@ describe('runJob — throttle handling', () => {
 
     expect(job.results[0].status).toBe('error');
     expect(job.results[0].error).toBe('Invalid product_type');
+  });
+});
+
+describe('runJob — result shape', () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it('payroll surfaces mapping_status from /v1/companies/ and not confidence_level', async () => {
+    const lookupCompany = vi.fn().mockResolvedValue({
+      statusCode: 200,
+      data: { name: 'ACME', company_mapping_id: 'abc', success_rate: 'high', mapping_status: 'verified', confidence_level: '0.9' },
+      durationMs: 1,
+      requestBody: null,
+    });
+
+    const job = makeJob([{ name: 'ACME' }], 'payroll');
+    const promise = runJob({ job, truv: { lookupCompany }, apiLogger: noopLogger });
+    await vi.runAllTimersAsync();
+    await promise;
+
+    expect(job.results[0].status).toBe('found');
+    expect(job.results[0].mapping_status).toBe('verified');
+    expect(job.results[0]).not.toHaveProperty('confidence_level');
+  });
+
+  it('bank uses status="found" and drops confidence_level + mapping_status from row output', async () => {
+    const searchProviders = vi.fn().mockResolvedValue({
+      statusCode: 200,
+      data: { results: [{ id: 'chase', name: 'Chase', success_rate: 'high', confidence_level: '0.95' }] },
+      durationMs: 1,
+      requestBody: null,
+    });
+
+    const job = makeJob([{ name: 'Chase' }], 'bank');
+    const promise = runJob({ job, truv: { searchProviders }, apiLogger: noopLogger });
+    await vi.runAllTimersAsync();
+    await promise;
+
+    expect(job.results[0].status).toBe('found');
+    expect(job.results[0]).not.toHaveProperty('confidence_level');
+    expect(job.results[0]).not.toHaveProperty('mapping_status');
   });
 });

@@ -65,13 +65,16 @@ function parseRows(text) {
 
 // Serialize an array of objects to a CSV string. Headers come from the
 // caller-supplied list (preserves column order); falls back to keys of the first row.
-export function serializeCsv(rows, headers) {
+// `headerLabels` optionally maps a column key to a display label used in the header row
+// (e.g. { status: 'Search Status' }); columns without an entry use the raw key.
+export function serializeCsv(rows, headers, headerLabels) {
   const cols = headers || (rows[0] ? Object.keys(rows[0]) : []);
   const escape = v => {
     const s = v == null ? '' : String(v);
     return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
-  const lines = [cols.join(',')];
+  const labels = cols.map(c => (headerLabels && headerLabels[c]) || c);
+  const lines = [labels.map(escape).join(',')];
   for (const row of rows) lines.push(cols.map(c => escape(row[c])).join(','));
   return lines.join('\n') + '\n';
 }
