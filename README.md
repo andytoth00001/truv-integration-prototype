@@ -170,7 +170,7 @@ Sections relevant to this prototype:
 
 ## Demo Walkthrough (Video)
 
-[Loom link — add before submission]
+[Loom link — TBA]
 
 ---
 
