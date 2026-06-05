@@ -23,11 +23,11 @@ Built on the Truv QuickStart, extended with:
 
 **Prerequisites:**
 - Node.js 18+
-- ngrok account (free tier)
+- ngrok (free account at ngrok.com)
 
 **Setup:**
 ```sh
-git clone [repo]
+git clone https://github.com/andytoth00001/truv-integration-prototype
 cd demo-apps
 cp .env.example .env
 # Add your Truv sandbox credentials to .env
@@ -158,7 +158,7 @@ Fund a loan, then try to fund it again with a different idempotency key — Gate
 
 ## PRD
 
-Full integration PRD included: `Truv_PRD_Andrew_Toth.docx`
+Full integration PRD included: `Truv_PRD_Andrew_Toth_PCL.PDF`
 
 Sections relevant to this prototype:
 - Section 4.4 — Truv processing logic Steps 1-7
