@@ -26,6 +26,11 @@ import bridgeRoutes from './routes/bridge.js';
 import uploadDocumentsRoutes from './routes/upload-documents.js';
 import userReportsRoutes from './routes/user-reports.js';
 import coverageAnalysisRoutes from './routes/coverage-analysis.js';
+import { BillingStore } from './billing-store.js';
+import bssAdminRoutes from './routes/bss-admin.js';
+import fundedRoutes from './routes/funded.js';
+import auditRoutes from './routes/audit.js';
+import billingDashboardRoutes from './routes/billing-dashboard.js';
 
 // Configuration: read API credentials from .env and validate they exist
 const PORT = process.env.PORT || 3000;
@@ -39,6 +44,7 @@ if (!API_CLIENT_ID || !API_SECRET) {
 // Initialization: create the shared TruvClient and initialize the SQLite database.
 // These are injected into all sub-route modules as dependencies.
 const truv = new TruvClient({ clientId: API_CLIENT_ID, secret: API_SECRET });
+const billingStore = new BillingStore();
 db.initDb();
 
 // Express setup: JSON body parsing (with raw body capture for webhook HMAC verification)
@@ -89,10 +95,15 @@ app.post('/api/webhooks/truv', (req, res) => {
   let userId = payload.user_id || null;
   const linkId = payload.link_id || null;
 
-  // When an order completes, update its status in the local database
+  // When an order completes, update its status and auto-fetch the report so
+  // db.upsertReport() runs regardless of which frontend is active (audit log §3).
   if (userId && payload.event_type === 'order-status-updated' && payload.status === 'completed') {
     const order = db.findOrderByUserId(userId);
-    if (order) db.updateOrder(order.id, { status: 'completed' });
+    if (order) {
+      db.updateOrder(order.id, { status: 'completed' });
+      fetch(`http://localhost:${PORT}/api/orders/${order.id}/report`)
+        .catch(err => console.error('Auto report fetch failed:', err.message));
+    }
   }
 
   // task-status-updated payloads omit user_id but include link_id. Resolve via
@@ -115,13 +126,17 @@ app.get('/api/users/:userId/logs', (req, res) => res.json(db.getApiLogsByUserId(
 
 // --- Demo routes ---
 // Mounts sub-route modules. Each receives the shared { truv, db, apiLogger } dependencies.
-const deps = { truv, db, apiLogger };
+const deps = { truv, db, apiLogger, billingStore };
 app.use(ordersRoutes(deps));
 app.use(reportsRoutes(deps));
 app.use(bridgeRoutes(deps));
 app.use(uploadDocumentsRoutes(deps));
 app.use(userReportsRoutes(deps));
 app.use(coverageAnalysisRoutes(deps));
+app.use(bssAdminRoutes(deps));
+app.use(fundedRoutes(deps));
+app.use(auditRoutes(deps));
+app.use(billingDashboardRoutes(deps));
 
 // --- Health check ---
 app.get('/api/health', (_req, res) => res.json({ ok: true }));

@@ -64,7 +64,8 @@ export default function ordersRoutes({ truv, db, apiLogger }) {
 
       // Persist the order in SQLite and log the API call
       const userId = truvData.user_id;
-      db.createOrder({ orderId, truvOrderId: truvData.id, userId, demoId: data.demo_id || 'default', bridgeToken: truvData.bridge_token, shareUrl: truvData.share_url, status: truvData.status || 'created', rawResponse: truvData });
+      const loanNumber = data.loan_number || `2026-WC-${Date.now().toString().slice(-6)}`;
+      db.createOrder({ orderId, truvOrderId: truvData.id, userId, demoId: data.demo_id || 'default', bridgeToken: truvData.bridge_token, shareUrl: truvData.share_url, status: truvData.status || 'created', rawResponse: truvData, loanNumber });
       db.updateOrder(orderId, { product_type: data.products ? data.products.join(',') : pt });
       apiLogger.logApiCall({ userId, method: 'POST', endpoint: '/v1/orders/', requestBody: result.requestBody, responseBody: truvData, statusCode: result.statusCode, durationMs: result.durationMs });
 

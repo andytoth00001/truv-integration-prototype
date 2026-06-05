@@ -50,6 +50,32 @@ export function Home() {
               See how Truv helps verify income, employment, and assets across mortgage, consumer lending, government, and banking.
             </p>
           </div>
+
+          {/* LION POS — case study prototype */}
+          <div class="mb-6 -mx-6 px-6">
+            <a href="#lion" class="group block rounded-2xl border border-[#1a3a5c]/20 bg-[#1a3a5c]/5 hover:bg-[#1a3a5c]/10 px-6 py-5 transition-all duration-200">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-4">
+                  <div class="w-10 h-10 rounded-xl bg-[#1a3a5c] flex items-center justify-center shrink-0">
+                    <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <div class="flex items-center gap-2 mb-0.5">
+                      <h3 class="text-[17px] font-semibold text-[#1a3a5c] tracking-[-0.02em]">LION POS</h3>
+                      <span class="text-[10px] font-semibold bg-[#1a3a5c] text-white px-2 py-0.5 rounded tracking-wide uppercase">Case Study</span>
+                    </div>
+                    <p class="text-[14px] text-[#4a6fa5]">Loan officer intake form with embedded Bridge verification and BSS billing simulation.</p>
+                  </div>
+                </div>
+                <svg class="w-4 h-4 text-[#1a3a5c] opacity-50 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-200 shrink-0 ml-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
+              </div>
+            </a>
+          </div>
+
           <div class="-mx-6">
             {INDUSTRIES.filter(i => i.demos.length > 0).map((ind, i) => (
               <IndustryCard key={ind.id} industry={ind} index={i} />

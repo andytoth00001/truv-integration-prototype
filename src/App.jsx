@@ -39,6 +39,7 @@ import { PaycheckLinkedLoansDemo } from './demos/PaycheckLinkedLoans.jsx';
 import { DirectDepositSwitchDemo } from './demos/DirectDepositSwitch.jsx';
 import { PayrollCoverageDemo } from './demos/PayrollCoverage.jsx';
 import { BankCoverageDemo } from './demos/BankCoverage.jsx';
+import { LionPosPage } from './pages/LionPos.jsx';
 
 // INDUSTRIES registry: each entry has an id, display name, description, and a
 // demos array. Each demo object maps { id, name, component, desc, tags } so
@@ -126,6 +127,7 @@ export function App() {
 
   // Routing logic: progressively resolve industry, then demo, then screen.
   // At each level, fall back to the parent view if no match is found.
+  if (route.industry === 'lion') return <LionPosPage />;
   if (!route.industry) return <Home />;
 
   const industry = INDUSTRIES.find(i => i.id === route.industry);

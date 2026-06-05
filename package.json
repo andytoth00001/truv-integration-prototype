@@ -4,7 +4,7 @@
   "type": "module",
   "description": "Truv API Demo Apps — interactive demos for every integration pattern",
   "scripts": {
-    "start": "node server/index.js",
+    "start": "concurrently \"node server/index.js\" \"npx vite\"",
     "dev": "npx vite",
     "test": "vitest run",
     "test:watch": "vitest"
@@ -22,6 +22,7 @@
     "node": ">=20.19.0"
   },
   "devDependencies": {
+    "concurrently": "^9.0.0",
     "@preact/preset-vite": "^2.10.5",
     "@tailwindcss/vite": "^4.2.2",
     "preact": "^10.29.0",

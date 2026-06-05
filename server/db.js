@@ -106,6 +106,7 @@ export function initDb() {
   try { conn.exec('ALTER TABLE api_logs ADD COLUMN user_id TEXT'); } catch {}
   try { conn.exec('ALTER TABLE orders ADD COLUMN product_type TEXT'); } catch {}
   try { conn.exec('ALTER TABLE document_collections ADD COLUMN user_id TEXT'); } catch {}
+  try { conn.exec('ALTER TABLE orders ADD COLUMN loan_number TEXT'); } catch {}
 }
 
 // Generates a short random ID for local records (not sent to Truv)
@@ -117,11 +118,11 @@ export function generateId() {
 // Orders track the lifecycle of a Truv verification request (created -> completed).
 
 // Inserts a new order row and returns the created record.
-export function createOrder({ orderId, truvOrderId, userId, demoId, bridgeToken, shareUrl, status = 'created', rawResponse }) {
+export function createOrder({ orderId, truvOrderId, userId, demoId, bridgeToken, shareUrl, status = 'created', rawResponse, loanNumber }) {
   const conn = getDb();
   conn.prepare(
-    'INSERT INTO orders (id, truv_order_id, user_id, demo_id, bridge_token, share_url, status, raw_response) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-  ).run(orderId, truvOrderId || null, userId || null, demoId || null, bridgeToken || null, shareUrl || null, status, rawResponse ? JSON.stringify(rawResponse) : null);
+    'INSERT INTO orders (id, truv_order_id, user_id, demo_id, bridge_token, share_url, status, raw_response, loan_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+  ).run(orderId, truvOrderId || null, userId || null, demoId || null, bridgeToken || null, shareUrl || null, status, rawResponse ? JSON.stringify(rawResponse) : null, loanNumber || null);
   return conn.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
 }
 
@@ -131,7 +132,7 @@ export function getOrder(orderId) {
 }
 
 // Whitelist of columns allowed in order updates (prevents SQL injection via key names)
-const ORDER_ALLOWED_COLS = new Set(['status', 'raw_response', 'bridge_token', 'share_url', 'product_type']);
+const ORDER_ALLOWED_COLS = new Set(['status', 'raw_response', 'bridge_token', 'share_url', 'product_type', 'loan_number']);
 
 // Updates allowed fields on an existing order. Objects are JSON-serialized automatically.
 export function updateOrder(orderId, fields) {
@@ -274,6 +275,16 @@ export function updateDocCollection(collectionId, fields) {
   });
   vals.push(collectionId);
   getDb().prepare(`UPDATE document_collections SET ${sets} WHERE id = ?`).run(...vals);
+}
+
+// Returns all webhook events across all users, newest first. Used by audit log.
+export function getAllWebhookEvents() {
+  return getDb().prepare('SELECT * FROM webhook_events ORDER BY id DESC').all();
+}
+
+// Returns all reports across all orders, newest first. Used by audit log.
+export function getAllReports() {
+  return getDb().prepare('SELECT * FROM reports ORDER BY id DESC').all();
 }
 
 // Test-only: inject a different Database instance (e.g., in-memory)
