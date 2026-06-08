@@ -32,7 +32,7 @@ export default function bssAdminRoutes({ db, billingStore }) {
         return `
       <tr>
         <td>${order.loan_number || '<em style="color:#999">none</em>'}</td>
-        <td><code>${order.id}</code></td>
+        <td><code style="word-break:break-all;font-size:0.75em">${order.truv_order_id}</code></td>
         <td>${order.status}</td>
         <td>${fundedAt}</td>
         <td>
